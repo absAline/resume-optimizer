@@ -2,39 +2,23 @@ import { getApiConfig } from './useApiKey'
 
 function getHeaders() {
   const { provider, key } = getApiConfig()
-  if (provider === 'openai') {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${key}`,
-    }
-  }
-  return {
-    'Content-Type': 'application/json',
-    'x-api-key': key,
-    'anthropic-version': '2023-06-01',
-  }
+  if (provider === 'openai') return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` }
+  if (provider === 'ollama') return { 'Content-Type': 'application/json' }
+  return { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }
 }
 
 function getBody(provider, prompt) {
-  if (provider === 'openai') {
-    return {
-      model: 'gpt-4o',
-      messages: [{ role: 'user', content: prompt }],
-      stream: true,
-    }
-  }
-  return {
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4096,
-    messages: [{ role: 'user', content: prompt }],
-    stream: true,
-  }
+  const config = getApiConfig()
+  if (provider === 'openai') return { model: 'gpt-4o', messages: [{ role: 'user', content: prompt }], stream: true }
+  if (provider === 'ollama') return { model: config.ollamaModel, messages: [{ role: 'user', content: prompt }], stream: true }
+  return { model: 'claude-sonnet-4-20250514', max_tokens: 4096, messages: [{ role: 'user', content: prompt }], stream: true }
 }
 
 function getEndpoint(provider) {
-  return provider === 'openai'
-    ? 'https://api.openai.com/v1/chat/completions'
-    : 'https://api.anthropic.com/v1/messages'
+  const config = getApiConfig()
+  if (provider === 'openai') return 'https://api.openai.com/v1/chat/completions'
+  if (provider === 'ollama') return `${config.ollamaEndpoint}/api/chat`
+  return 'https://api.anthropic.com/v1/messages'
 }
 
 export async function generateStream(prompt, onChunk, signal) {
@@ -60,16 +44,24 @@ export async function generateStream(prompt, onChunk, signal) {
     if (done) break
     buffer += decoder.decode(value, { stream: true })
 
-    if (provider === 'claude') {
+    if (provider === 'ollama') {
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const data = JSON.parse(line)
+          if (data.message?.content) onChunk(data.message.content)
+        } catch {}
+      }
+    } else if (provider === 'claude') {
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           try {
             const data = JSON.parse(line.slice(6))
-            if (data.type === 'content_block_delta' && data.delta?.text) {
-              onChunk(data.delta.text)
-            }
+            if (data.type === 'content_block_delta' && data.delta?.text) onChunk(data.delta.text)
           } catch {}
         }
       }
