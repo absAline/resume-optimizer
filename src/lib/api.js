@@ -1,19 +1,91 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+import { getApiConfig } from './useApiKey'
+
+function getHeaders() {
+  const { provider, key } = getApiConfig()
+  if (provider === 'openai') {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`,
+    }
+  }
+  return {
+    'Content-Type': 'application/json',
+    'x-api-key': key,
+    'anthropic-version': '2023-06-01',
+  }
+}
+
+function getBody(provider, prompt) {
+  if (provider === 'openai') {
+    return {
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      stream: true,
+    }
+  }
+  return {
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: prompt }],
+    stream: true,
+  }
+}
+
+function getEndpoint(provider) {
+  return provider === 'openai'
+    ? 'https://api.openai.com/v1/chat/completions'
+    : 'https://api.anthropic.com/v1/messages'
+}
 
 export async function generateStream(prompt, onChunk, signal) {
-  const res = await fetch(`${API_BASE}/chat`, {
+  const { provider } = getApiConfig()
+  const res = await fetch(getEndpoint(provider), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    headers: getHeaders(),
+    body: JSON.stringify(getBody(provider, prompt)),
     signal,
   })
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
+
+  if (!res.ok) {
+    const err = await res.text().catch(() => '')
+    throw new Error(`API error (${res.status}): ${err}`)
+  }
+
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
+  let buffer = ''
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    onChunk(decoder.decode(value, { stream: true }))
+    buffer += decoder.decode(value, { stream: true })
+
+    if (provider === 'claude') {
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6))
+            if (data.type === 'content_block_delta' && data.delta?.text) {
+              onChunk(data.delta.text)
+            }
+          } catch {}
+        }
+      }
+    } else {
+      const lines = buffer.split('\n')
+      buffer = ''
+      for (const line of lines) {
+        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+          try {
+            const data = JSON.parse(line.slice(6))
+            const delta = data.choices?.[0]?.delta?.content
+            if (delta) onChunk(delta)
+          } catch {}
+        }
+      }
+    }
   }
 }
 
@@ -71,10 +143,10 @@ export function buildOptimizePrompt(resume, jd, section) {
   return `作为简历优化专家，请专门优化以下简历中的"${section}"部分，使其更匹配职位描述。
 
 简历${section}原文：
-${resume[section] || '未填写'}
+${resume[section] || jd?.requirements || '未填写'}
 
 职位要求：
-${jd.requirements}
+${jd?.requirements || '未提供'}
 
 请直接输出优化后的${section}内容，附带简短的修改说明。`
 }
