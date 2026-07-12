@@ -1,1 +1,109 @@
 @import "tailwindcss";
+
+@theme {
+  --color-navy-900: #0f172a;
+  --color-navy-800: #1e293b;
+  --color-navy-700: #334155;
+  --color-navy-600: #475569;
+  --color-gold-400: #d4a74a;
+  --color-gold-500: #c9952e;
+  --color-gold-600: #b07f1e;
+  --color-slate-150: #eef2f6;
+  --font-heading: "Playfair Display", "Noto Serif SC", serif;
+  --font-body: "Source Sans 3", "Noto Sans SC", sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-navy-900);
+  color: #e2e8f0;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+}
+
+/* Custom component styles */
+.btn-gold {
+  background: linear-gradient(135deg, var(--color-gold-500), var(--color-gold-600));
+  color: #fff;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+}
+.btn-gold:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(201, 149, 46, 0.3);
+}
+
+.card-premium {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.8));
+  border: 1px solid rgba(212, 167, 74, 0.15);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.input-premium {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--color-navy-600);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  color: #e2e8f0;
+  width: 100%;
+  font-size: 0.875rem;
+  transition: border-color 0.2s;
+  outline: none;
+}
+.input-premium:focus {
+  border-color: var(--color-gold-500);
+  box-shadow: 0 0 0 2px rgba(201, 149, 46, 0.15);
+}
+
+.select-premium {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--color-navy-600);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  color: #e2e8f0;
+  width: 100%;
+  font-size: 0.875rem;
+  outline: none;
+}
+.select-premium:focus {
+  border-color: var(--color-gold-500);
+}
+
+.textarea-premium {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--color-navy-600);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  color: #e2e8f0;
+  width: 100%;
+  font-size: 0.875rem;
+  resize: vertical;
+  outline: none;
+}
+.textarea-premium:focus {
+  border-color: var(--color-gold-500);
+}
+
+.tag-premium {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  background: rgba(212, 167, 74, 0.12);
+  border: 1px solid rgba(212, 167, 74, 0.25);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--color-gold-400);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-navy-900); }
+::-webkit-scrollbar-thumb { background: var(--color-navy-600); border-radius: 3px; }

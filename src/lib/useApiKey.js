@@ -1,42 +1,70 @@
-import { useState, useEffect } from 'react'
+const STORAGE_KEY = 'resume-optimizer-ai-config'
 
-const KEY = 'resume-api-config'
-const DEFAULT = {
-  provider: 'claude',
-  key: '',
-  ollamaModel: 'qwen2.5:7b',
-  ollamaEndpoint: 'http://localhost:11434',
+const DEFAULT_PROVIDERS = {
+  openai: {
+    name: 'OpenAI',
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    model: 'gpt-4o-mini',
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    endpoint: 'https://api.deepseek.com/v1/chat/completions',
+    model: 'deepseek-chat',
+  },
+}
+
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch { /* ignore */ }
+  return null
+}
+
+function saveConfig(config) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
 }
 
 export function getApiConfig() {
-  try {
-    return JSON.parse(localStorage.getItem(KEY)) || DEFAULT
-  } catch {
-    return DEFAULT
-  }
+  return loadConfig()
 }
 
-export function setApiConfig(config) {
-  localStorage.setItem(KEY, JSON.stringify({ ...DEFAULT, ...config }))
+export function clearApiConfig() {
+  localStorage.removeItem(STORAGE_KEY)
+}
+
+export function setApiConfig({ provider, apiKey, endpoint, model }) {
+  const cfg = { provider, apiKey, endpoint, model }
+  saveConfig(cfg)
+  return cfg
+}
+
+export function isRealMode() {
+  const cfg = loadConfig()
+  return !!(cfg?.apiKey && cfg?.endpoint)
 }
 
 export default function useApiKey() {
-  const [config, setConfig] = useState(getApiConfig)
-  const [showModal, setShowModal] = useState(false)
-
-  useEffect(() => { setApiConfig(config) }, [config])
-
-  const update = (patch) => setConfig(c => ({ ...c, ...patch }))
-  const hasKey = config.provider === 'ollama' || !!config.key
-
+  const cfg = loadConfig()
+  if (cfg?.apiKey) {
+    return {
+      isDemo: false,
+      provider: cfg.provider || 'custom',
+      endpoint: cfg.endpoint,
+      model: cfg.model,
+      apiKey: cfg.apiKey,
+      config: cfg,
+    }
+  }
   return {
-    provider: config.provider,
-    key: config.key,
-    hasKey,
-    ollamaModel: config.ollamaModel,
-    ollamaEndpoint: config.ollamaEndpoint,
-    update,
-    showModal,
-    setShowModal,
+    isDemo: true,
+    provider: null,
+    endpoint: null,
+    model: null,
+    apiKey: null,
+    config: null,
+    defaultProviders: DEFAULT_PROVIDERS,
   }
 }
+
+export { DEFAULT_PROVIDERS }

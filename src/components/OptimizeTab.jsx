@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
-import { generateStream, buildOptimizePrompt, saveHistory } from '../lib/api'
+import { downloadTextFile } from '../lib/utils'
+import { generateStream, buildOptimizePrompt, saveToHistory, canUseToday, incrementUsage, isRealMode } from '../lib/api'
 
 const SECTIONS = [
   { key: 'experience', label: '工作经历' },
@@ -20,6 +21,12 @@ export default function OptimizeTab() {
 
   const handleOptimize = useCallback(async () => {
     if (!resumeText.trim()) { setError('请输入简历内容'); return }
+
+    if (!isRealMode() && !canUseToday().allowed) {
+      setError(`今日免费次数已用尽（${canUseToday().total}/${canUseToday().total}），配置 API Key 可解除限制`)
+      return
+    }
+
     setError('')
     setOutput('')
     setLoading(true)
@@ -33,7 +40,8 @@ export default function OptimizeTab() {
         text += chunk
         setOutput(text)
       }, aborter.current.signal)
-      saveHistory({ type: '优化建议', section, content: text })
+      saveToHistory({ type: '优化建议', name: section, content: text })
+      incrementUsage()
     } catch (err) {
       if (err.name !== 'AbortError') setError(err.message)
     } finally {
@@ -47,38 +55,44 @@ export default function OptimizeTab() {
       <div className="flex gap-2 flex-wrap">
         {SECTIONS.map(s => (
           <button key={s.key} onClick={() => setSection(s.key)}
-            className={`px-3 py-1.5 rounded-lg border text-sm transition ${section === s.key ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+            className={`px-3 py-1.5 rounded-lg border text-sm transition ${
+              section === s.key
+                ? 'btn-gold text-xs'
+                : 'border-gray-600/30 text-gray-400 bg-transparent'
+            }`}>
             {s.label}
           </button>
         ))}
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">简历内容</label>
+      <div className="card-premium">
+        <label className="block text-sm font-medium mb-1" style={{color: '#94a3b8'}}>简历内容</label>
         <textarea value={resumeText} onChange={e => setResumeText(e.target.value)} rows={6}
-          placeholder="粘贴需要优化的简历内容..." className="w-full rounded-lg border border-gray-300 p-3 text-sm" />
+          placeholder="粘贴需要优化的简历内容..." className="textarea-premium" />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">职位要求（可选）</label>
+      <div className="card-premium">
+        <label className="block text-sm font-medium mb-1" style={{color: '#94a3b8'}}>职位要求（可选）</label>
         <textarea value={jdText} onChange={e => setJdText(e.target.value)} rows={3}
-          placeholder="粘贴目标职位要求，使优化更有针对性..." className="w-full rounded-lg border border-gray-300 p-3 text-sm" />
+          placeholder="粘贴目标职位要求，使优化更有针对性..." className="textarea-premium" />
       </div>
 
-      <button onClick={handleOptimize} disabled={loading}
-        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium">
+      <button onClick={handleOptimize} disabled={loading} className="btn-gold w-full text-sm">
         {loading ? '优化中...' : '✨ 生成优化建议'}
       </button>
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && <p className="text-sm" style={{color: '#e8564a'}}>{error}</p>}
 
       {output && (
-        <div className="bg-white rounded-xl border p-6">
+        <div className="card-premium">
           <div className="flex justify-between items-center mb-4">
-            <span className="text-sm font-medium text-gray-600">优化结果</span>
-            <button onClick={() => navigator.clipboard.writeText(output)} className="text-sm text-blue-600 hover:text-blue-700">复制</button>
+            <span className="text-sm font-medium" style={{color: '#94a3b8'}}>优化结果</span>
+            <div className="flex gap-2">
+              <button onClick={() => navigator.clipboard.writeText(output)} className="text-xs btn-gold">复制</button>
+              <button onClick={() => downloadTextFile(output, `优化建议-${Date.now()}.txt`)} className="text-xs btn-gold" style={{background: 'rgba(45, 125, 70, 0.6)'}}>导出 TXT</button>
+            </div>
           </div>
-          <div className="whitespace-pre-wrap text-sm">{output}</div>
+          <div className="whitespace-pre-wrap text-sm" style={{color: '#cbd5e1'}}>{output}</div>
         </div>
       )}
     </div>
